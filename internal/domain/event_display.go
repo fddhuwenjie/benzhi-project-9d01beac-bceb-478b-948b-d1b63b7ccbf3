@@ -33,8 +33,24 @@ func (e CaseEvent) DisplayPayload() map[string]any {
 
 func displayValue(value any) any {
 	switch typed := value.(type) {
-	case nil, string, bool, float64, int, int64, []string, []any:
+	case nil:
+		return nil
+	case string, bool, float64, int, int64:
 		return typed
+	case []string:
+		return append([]string(nil), typed...)
+	case []any:
+		out := make([]any, len(typed))
+		for i, item := range typed {
+			out[i] = displayValue(item)
+		}
+		return out
+	case map[string]any:
+		out := make(map[string]any, len(typed))
+		for k, v := range typed {
+			out[k] = displayValue(v)
+		}
+		return out
 	default:
 		return fmt.Sprint(typed)
 	}

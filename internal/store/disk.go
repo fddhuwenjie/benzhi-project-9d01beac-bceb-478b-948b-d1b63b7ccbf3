@@ -198,14 +198,59 @@ func (r *DiskRepository) Timeline(ctx context.Context, caseID string) ([]domain.
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if events, ok := r.timelines[caseID]; ok {
-		return events, nil
+		return cloneEvents(events), nil
 	}
 	events, err := readEvents(r.eventsPath, caseID)
 	if err != nil {
 		return nil, err
 	}
 	r.timelines[caseID] = events
-	return events, nil
+	return cloneEvents(events), nil
+}
+
+func cloneEvents(events []domain.CaseEvent) []domain.CaseEvent {
+	out := make([]domain.CaseEvent, len(events))
+	for i, event := range events {
+		out[i] = event
+		out[i].Payload = clonePayload(event.Payload)
+	}
+	return out
+}
+
+func clonePayload(payload map[string]any) map[string]any {
+	if payload == nil {
+		return nil
+	}
+	out := make(map[string]any, len(payload))
+	for k, v := range payload {
+		out[k] = cloneValue(v)
+	}
+	return out
+}
+
+func cloneValue(v any) any {
+	switch typed := v.(type) {
+	case nil:
+		return nil
+	case string, bool, float64, int, int64:
+		return typed
+	case []string:
+		return append([]string(nil), typed...)
+	case []any:
+		out := make([]any, len(typed))
+		for i, item := range typed {
+			out[i] = cloneValue(item)
+		}
+		return out
+	case map[string]any:
+		out := make(map[string]any, len(typed))
+		for k, v := range typed {
+			out[k] = cloneValue(v)
+		}
+		return out
+	default:
+		return typed
+	}
 }
 
 func (r *DiskRepository) IdempotentResult(ctx context.Context, caseID, requestID string, dst any) (bool, error) {
