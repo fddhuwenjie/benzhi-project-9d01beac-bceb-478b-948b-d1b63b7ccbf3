@@ -13,6 +13,19 @@ func (r *DiskRepository) appendEventsLocked(events []domain.CaseEvent) error {
 	if len(events) == 0 {
 		return nil
 	}
+	// Detect log rotation: operators may rename the active log aside and
+	// create a new file at the same path between writes. A cached handle
+	// would then still point at the archived log, silently dropping
+	// subsequent events from the active timeline. Reopen when the active
+	// path no longer matches the cached handle.
+	if r.eventsFile != nil {
+		pathStat, pathErr := os.Stat(r.eventsPath)
+		handleStat, handleErr := r.eventsFile.Stat()
+		if pathErr != nil || handleErr != nil || !os.SameFile(pathStat, handleStat) {
+			_ = r.eventsFile.Close()
+			r.eventsFile = nil
+		}
+	}
 	if r.eventsFile == nil {
 		f, err := os.OpenFile(r.eventsPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 		if err != nil {
