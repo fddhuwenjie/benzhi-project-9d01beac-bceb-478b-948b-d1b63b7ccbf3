@@ -10,7 +10,8 @@ func (s *Service) CreateCase(ctx context.Context, cmd CreateCaseCommand) (Mutati
 	if strings.TrimSpace(cmd.Actor) == "" || strings.TrimSpace(cmd.RequestID) == "" {
 		return MutationResult{}, domain.ErrValidation
 	}
-	if prior, ok, err := s.prior(ctx, "", cmd.RequestID); err != nil || ok {
+	fp := fingerprint("case.created", cmd.Title, cmd.Organization, cmd.Owner, cmd.TargetPublishDate, cmd.Actor)
+	if prior, ok, err := s.prior(ctx, "", cmd.RequestID, fp); err != nil || ok {
 		return prior, err
 	}
 	now := s.now()
@@ -20,7 +21,7 @@ func (s *Service) CreateCase(ctx context.Context, cmd CreateCaseCommand) (Mutati
 	}
 	result := resultFor(c)
 	event := domain.NewEvent(c.ID, "case.created", cmd.Actor, cmd.RequestID, c.Revision, now, map[string]any{"title": c.Title, "organization": c.Organization})
-	if err := s.repo.Create(ctx, c, []domain.CaseEvent{event}, cmd.RequestID, &result); err != nil {
+	if err := s.repo.CreateWithFingerprint(ctx, c, []domain.CaseEvent{event}, cmd.RequestID, fp, &result); err != nil {
 		return MutationResult{}, err
 	}
 	return result, nil

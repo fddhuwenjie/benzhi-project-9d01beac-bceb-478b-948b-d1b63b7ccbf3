@@ -7,9 +7,10 @@ import (
 )
 
 type idempotencyRecord struct {
-	CaseID    string          `json:"case_id"`
-	RequestID string          `json:"request_id"`
-	Result    json.RawMessage `json:"result"`
+	CaseID      string          `json:"case_id"`
+	RequestID   string          `json:"request_id"`
+	Fingerprint string          `json:"fingerprint"`
+	Result      json.RawMessage `json:"result"`
 }
 
 func loadIdempotency(path string) (map[string]idempotencyRecord, error) {

@@ -11,6 +11,7 @@ type SaveRequest struct {
 	ExpectedRevision int64
 	Events           []domain.CaseEvent
 	RequestID        string
+	Fingerprint      string
 	Result           any
 }
 
@@ -23,4 +24,6 @@ type Repository interface {
 	ContentHistory(context.Context, string) ([]domain.DocumentContent, error)
 	Timeline(context.Context, string) ([]domain.CaseEvent, error)
 	IdempotentResult(context.Context, string, string, any) (bool, error)
+	IdempotentCheck(context.Context, string, string, string, any) (bool, error)
+	CreateWithFingerprint(context.Context, *domain.AcceptanceCase, []domain.CaseEvent, string, string, any) error
 }

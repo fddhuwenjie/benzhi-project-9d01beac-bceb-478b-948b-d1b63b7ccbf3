@@ -38,6 +38,10 @@ func NewDiskRepository(dir string) (*DiskRepository, error) {
 func (r *DiskRepository) casePath(id string) string { return filepath.Join(r.dir, "cases", id+".json") }
 
 func (r *DiskRepository) Create(ctx context.Context, c *domain.AcceptanceCase, events []domain.CaseEvent, requestID string, result any) error {
+	return r.CreateWithFingerprint(ctx, c, events, requestID, "", result)
+}
+
+func (r *DiskRepository) CreateWithFingerprint(ctx context.Context, c *domain.AcceptanceCase, events []domain.CaseEvent, requestID, fingerprint string, result any) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -45,6 +49,9 @@ func (r *DiskRepository) Create(ctx context.Context, c *domain.AcceptanceCase, e
 	defer r.mu.Unlock()
 	if requestID != "" {
 		if record, ok := r.records["\x00"+requestID]; ok {
+			if fingerprint != "" && record.Fingerprint != fingerprint {
+				return domain.ErrConflict
+			}
 			return json.Unmarshal(record.Result, result)
 		}
 	}
@@ -57,7 +64,7 @@ func (r *DiskRepository) Create(ctx context.Context, c *domain.AcceptanceCase, e
 	if err := appendEvents(r.eventsPath, events); err != nil {
 		return err
 	}
-	return r.rememberLocked("", requestID, result)
+	return r.rememberLocked("", requestID, fingerprint, result)
 }
 
 func (r *DiskRepository) Save(ctx context.Context, req SaveRequest) error {
@@ -68,6 +75,9 @@ func (r *DiskRepository) Save(ctx context.Context, req SaveRequest) error {
 	defer r.mu.Unlock()
 	if req.RequestID != "" {
 		if record, ok := r.records[req.Case.ID+"\x00"+req.RequestID]; ok {
+			if record.Fingerprint != req.Fingerprint {
+				return domain.ErrConflict
+			}
 			return json.Unmarshal(record.Result, req.Result)
 		}
 	}
@@ -101,7 +111,7 @@ func (r *DiskRepository) Save(ctx context.Context, req SaveRequest) error {
 	if err := appendEvents(r.eventsPath, req.Events); err != nil {
 		return err
 	}
-	return r.rememberLocked(req.Case.ID, req.RequestID, req.Result)
+	return r.rememberLocked(req.Case.ID, req.RequestID, req.Fingerprint, req.Result)
 }
 
 func cloneContentHistory(items []domain.DocumentContent) []domain.DocumentContent {
@@ -132,7 +142,7 @@ func (r *DiskRepository) ContentHistory(ctx context.Context, id string) ([]domai
 	return history, nil
 }
 
-func (r *DiskRepository) rememberLocked(caseID, requestID string, result any) error {
+func (r *DiskRepository) rememberLocked(caseID, requestID, fingerprint string, result any) error {
 	if requestID == "" {
 		return nil
 	}
@@ -140,7 +150,7 @@ func (r *DiskRepository) rememberLocked(caseID, requestID string, result any) er
 	if err != nil {
 		return err
 	}
-	r.records[caseID+"\x00"+requestID] = idempotencyRecord{CaseID: caseID, RequestID: requestID, Result: b}
+	r.records[caseID+"\x00"+requestID] = idempotencyRecord{CaseID: caseID, RequestID: requestID, Fingerprint: fingerprint, Result: b}
 	return writeIdempotency(r.idempotencyPath, r.records)
 }
 
@@ -198,6 +208,10 @@ func (r *DiskRepository) Timeline(ctx context.Context, caseID string) ([]domain.
 }
 
 func (r *DiskRepository) IdempotentResult(ctx context.Context, caseID, requestID string, dst any) (bool, error) {
+	return r.IdempotentCheck(ctx, caseID, requestID, "", dst)
+}
+
+func (r *DiskRepository) IdempotentCheck(ctx context.Context, caseID, requestID, fingerprint string, dst any) (bool, error) {
 	if err := ctx.Err(); err != nil {
 		return false, err
 	}
@@ -209,6 +223,9 @@ func (r *DiskRepository) IdempotentResult(ctx context.Context, caseID, requestID
 	record, ok := r.records[caseID+"\x00"+requestID]
 	if !ok {
 		return false, nil
+	}
+	if fingerprint != "" && record.Fingerprint != fingerprint {
+		return false, domain.ErrConflict
 	}
 	return true, json.Unmarshal(record.Result, dst)
 }

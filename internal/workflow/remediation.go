@@ -12,7 +12,8 @@ func (s *Service) SubmitEvidence(ctx context.Context, cmd SubmitEvidenceCommand)
 	if err := validateMutation(cmd.CaseID, cmd.Actor, cmd.RequestID, cmd.Revision); err != nil {
 		return MutationResult{}, err
 	}
-	if prior, ok, err := s.prior(ctx, cmd.CaseID, cmd.RequestID); err != nil || ok {
+	fp := fingerprint("evidence.submitted", cmd.CaseID, cmd.IssueID, cmd.ContentRevision, cmd.Description, cmd.Text, cmd.Actor)
+	if prior, ok, err := s.prior(ctx, cmd.CaseID, cmd.RequestID, fp); err != nil || ok {
 		return prior, err
 	}
 	c, _, err := s.repo.Get(ctx, cmd.CaseID)
@@ -42,7 +43,7 @@ func (s *Service) SubmitEvidence(ctx context.Context, cmd SubmitEvidenceCommand)
 	result := resultFor(c)
 	result.IssueID = issue.ID
 	event := domain.NewEvent(c.ID, "evidence.submitted", cmd.Actor, cmd.RequestID, c.Revision, now, map[string]any{"issue_id": issue.ID, "content_revision": cmd.ContentRevision})
-	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
+	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Fingerprint: fp, Result: &result}); err != nil {
 		return MutationResult{}, err
 	}
 	return result, nil
@@ -52,7 +53,8 @@ func (s *Service) SubmitEvidenceBatch(ctx context.Context, cmd SubmitEvidenceBat
 	if err := validateMutation(cmd.CaseID, cmd.Actor, cmd.RequestID, cmd.Revision); err != nil {
 		return MutationResult{}, err
 	}
-	if prior, ok, err := s.prior(ctx, cmd.CaseID, cmd.RequestID); err != nil || ok {
+	fp := fingerprint("evidence.batch_submitted", cmd.CaseID, cmd.ContentRevision, cmd.Actor, cmd.Items)
+	if prior, ok, err := s.prior(ctx, cmd.CaseID, cmd.RequestID, fp); err != nil || ok {
 		return prior, err
 	}
 	c, _, err := s.repo.Get(ctx, cmd.CaseID)
@@ -121,7 +123,7 @@ func (s *Service) SubmitEvidenceBatch(ctx context.Context, cmd SubmitEvidenceBat
 		issueIDs[i] = cmd.Items[i].IssueID
 	}
 	event := domain.NewEvent(c.ID, "evidence.batch_submitted", cmd.Actor, cmd.RequestID, c.Revision, now, map[string]any{"issue_ids": issueIDs, "content_revision": c.ContentRevision, "count": len(issueIDs)})
-	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
+	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Fingerprint: fp, Result: &result}); err != nil {
 		return MutationResult{}, err
 	}
 	return result, nil

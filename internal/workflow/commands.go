@@ -2,6 +2,8 @@ package workflow
 
 import (
 	"benzhi-project-9d01beac-bceb-478b-948b-d1b63b7ccbf3/internal/domain"
+	"encoding/json"
+	"strconv"
 	"time"
 )
 
@@ -100,4 +102,50 @@ type ContentRevisionInfo struct {
 	SavedBy    string    `json:"saved_by"`
 	SavedAt    time.Time `json:"saved_at"`
 	BlockCount int       `json:"block_count"`
+}
+
+// fingerprint computes a stable hash of an idempotency request's semantic
+// content (operation type plus request payload, excluding the optimistic
+// concurrency revision). The same request_id reused for a replay of the same
+// operation yields the same fingerprint and reuses the cached result; using
+// the same request_id for a different operation or payload yields a different
+// fingerprint and is rejected as a conflict rather than silently returning the
+// unrelated cached result.
+func fingerprint(operation string, parts ...any) string {
+	h := uint64(1469598103934665603)
+	mix := func(s string) {
+		for _, c := range []byte(s) {
+			h ^= uint64(c)
+			h *= 1099511628211
+		}
+		h ^= 0xff
+		h *= 1099511628211
+	}
+	mix(operation)
+	for _, part := range parts {
+		switch v := part.(type) {
+		case string:
+			mix(v)
+		case int64:
+			mix(strconv.FormatInt(v, 10))
+		case int:
+			mix(strconv.Itoa(v))
+		case bool:
+			if v {
+				mix("true")
+			} else {
+				mix("false")
+			}
+		default:
+			b, _ := json.Marshal(v)
+			mix(string(b))
+		}
+	}
+	const digits = "0123456789abcdef"
+	buf := make([]byte, 16)
+	for i := 15; i >= 0; i-- {
+		buf[i] = digits[h&15]
+		h >>= 4
+	}
+	return operation + ":" + string(buf)
 }

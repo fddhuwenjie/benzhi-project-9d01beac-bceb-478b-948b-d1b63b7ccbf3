@@ -10,7 +10,8 @@ func (s *Service) SaveContent(ctx context.Context, cmd SaveContentCommand) (Muta
 	if err := validateMutation(cmd.CaseID, cmd.Actor, cmd.RequestID, cmd.Revision); err != nil {
 		return MutationResult{}, err
 	}
-	if prior, ok, err := s.prior(ctx, cmd.CaseID, cmd.RequestID); err != nil || ok {
+	fp := fingerprint("content.saved", cmd.CaseID, cmd.Actor, cmd.Blocks)
+	if prior, ok, err := s.prior(ctx, cmd.CaseID, cmd.RequestID, fp); err != nil || ok {
 		return prior, err
 	}
 	c, _, err := s.repo.Get(ctx, cmd.CaseID)
@@ -32,7 +33,7 @@ func (s *Service) SaveContent(ctx context.Context, cmd SaveContentCommand) (Muta
 	}
 	result := resultFor(c)
 	event := domain.NewEvent(c.ID, "content.saved", cmd.Actor, cmd.RequestID, c.Revision, now, map[string]any{"content_revision": content.Revision, "block_count": len(content.Blocks)})
-	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, Content: content, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
+	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, Content: content, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Fingerprint: fp, Result: &result}); err != nil {
 		return MutationResult{}, err
 	}
 	return result, nil
@@ -45,7 +46,8 @@ func (s *Service) RestoreContent(ctx context.Context, cmd RestoreContentCommand)
 	if cmd.SourceRevision < 1 {
 		return MutationResult{}, domain.ValidationErrors{{Field: "source_revision", Message: "回退来源修订无效"}}
 	}
-	if prior, ok, err := s.prior(ctx, cmd.CaseID, cmd.RequestID); err != nil || ok {
+	fp := fingerprint("content.restored", cmd.CaseID, cmd.SourceRevision, cmd.Actor)
+	if prior, ok, err := s.prior(ctx, cmd.CaseID, cmd.RequestID, fp); err != nil || ok {
 		return prior, err
 	}
 	c, _, err := s.repo.Get(ctx, cmd.CaseID)
@@ -84,7 +86,7 @@ func (s *Service) RestoreContent(ctx context.Context, cmd RestoreContentCommand)
 	}
 	result := resultFor(c)
 	event := domain.NewEvent(c.ID, "content.restored", cmd.Actor, cmd.RequestID, c.Revision, now, map[string]any{"source_revision": cmd.SourceRevision, "content_revision": restored.Revision, "block_count": restored.BlockCount})
-	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, Content: &restored, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
+	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, Content: &restored, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Fingerprint: fp, Result: &result}); err != nil {
 		return MutationResult{}, err
 	}
 	return result, nil

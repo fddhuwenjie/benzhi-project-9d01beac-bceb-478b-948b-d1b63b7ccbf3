@@ -10,7 +10,8 @@ func (s *Service) Approve(ctx context.Context, cmd ApproveCommand) (MutationResu
 	if err := validateMutation(cmd.CaseID, cmd.Approver, cmd.RequestID, cmd.Revision); err != nil {
 		return MutationResult{}, err
 	}
-	if prior, ok, err := s.prior(ctx, cmd.CaseID, cmd.RequestID); err != nil || ok {
+	fp := fingerprint("case.approved", cmd.CaseID, cmd.Approver)
+	if prior, ok, err := s.prior(ctx, cmd.CaseID, cmd.RequestID, fp); err != nil || ok {
 		return prior, err
 	}
 	c, _, err := s.repo.Get(ctx, cmd.CaseID)
@@ -27,7 +28,7 @@ func (s *Service) Approve(ctx context.Context, cmd ApproveCommand) (MutationResu
 	}
 	result := resultFor(c)
 	event := domain.NewEvent(c.ID, "case.approved", cmd.Approver, cmd.RequestID, c.Revision, now, map[string]any{"declaration_id": c.Declaration.ID, "rule_version": c.RuleVersion, "content_revision": c.ContentRevision, "digest": c.Declaration.Digest})
-	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
+	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Fingerprint: fp, Result: &result}); err != nil {
 		return MutationResult{}, err
 	}
 	return result, nil
@@ -37,7 +38,8 @@ func (s *Service) Publish(ctx context.Context, cmd PublishCommand) (MutationResu
 	if err := validateMutation(cmd.CaseID, cmd.Actor, cmd.RequestID, cmd.Revision); err != nil {
 		return MutationResult{}, err
 	}
-	if prior, ok, err := s.prior(ctx, cmd.CaseID, cmd.RequestID); err != nil || ok {
+	fp := fingerprint("declaration.published", cmd.CaseID, cmd.Actor)
+	if prior, ok, err := s.prior(ctx, cmd.CaseID, cmd.RequestID, fp); err != nil || ok {
 		return prior, err
 	}
 	c, _, err := s.repo.Get(ctx, cmd.CaseID)
@@ -54,7 +56,7 @@ func (s *Service) Publish(ctx context.Context, cmd PublishCommand) (MutationResu
 	}
 	result := resultFor(c)
 	event := domain.NewEvent(c.ID, "declaration.published", cmd.Actor, cmd.RequestID, c.Revision, now, map[string]any{"declaration_id": c.Declaration.ID, "digest": c.Declaration.Digest})
-	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
+	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Fingerprint: fp, Result: &result}); err != nil {
 		return MutationResult{}, err
 	}
 	return result, nil

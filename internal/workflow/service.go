@@ -36,9 +36,9 @@ func resultFor(c *domain.AcceptanceCase) MutationResult {
 	return r
 }
 
-func (s *Service) prior(ctx context.Context, caseID, requestID string) (MutationResult, bool, error) {
+func (s *Service) prior(ctx context.Context, caseID, requestID, fingerprint string) (MutationResult, bool, error) {
 	var result MutationResult
-	ok, err := s.repo.IdempotentResult(ctx, caseID, requestID, &result)
+	ok, err := s.repo.IdempotentCheck(ctx, caseID, requestID, fingerprint, &result)
 	return result, ok, err
 }
 

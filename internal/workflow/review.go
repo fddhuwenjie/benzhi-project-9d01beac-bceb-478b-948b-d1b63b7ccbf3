@@ -12,7 +12,8 @@ func (s *Service) ReviewIssue(ctx context.Context, cmd ReviewIssueCommand) (Muta
 	if err := validateMutation(cmd.CaseID, cmd.Reviewer, cmd.RequestID, cmd.Revision); err != nil {
 		return MutationResult{}, err
 	}
-	if prior, ok, err := s.prior(ctx, cmd.CaseID, cmd.RequestID); err != nil || ok {
+	fp := fingerprint("issue.reviewed", cmd.CaseID, cmd.IssueID, cmd.Accept, cmd.Reviewer, cmd.Comment)
+	if prior, ok, err := s.prior(ctx, cmd.CaseID, cmd.RequestID, fp); err != nil || ok {
 		return prior, err
 	}
 	c, _, err := s.repo.Get(ctx, cmd.CaseID)
@@ -43,7 +44,7 @@ func (s *Service) ReviewIssue(ctx context.Context, cmd ReviewIssueCommand) (Muta
 	result := resultFor(c)
 	result.IssueID = issue.ID
 	event := domain.NewEvent(c.ID, "issue.reviewed", cmd.Reviewer, cmd.RequestID, c.Revision, now, map[string]any{"issue_id": issue.ID, "decision": decision, "comment": cmd.Comment})
-	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
+	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Fingerprint: fp, Result: &result}); err != nil {
 		return MutationResult{}, err
 	}
 	return result, nil
@@ -53,7 +54,8 @@ func (s *Service) ReviewBatch(ctx context.Context, cmd ReviewBatchCommand) (Muta
 	if err := validateMutation(cmd.CaseID, cmd.Reviewer, cmd.RequestID, cmd.Revision); err != nil {
 		return MutationResult{}, err
 	}
-	if prior, ok, err := s.prior(ctx, cmd.CaseID, cmd.RequestID); err != nil || ok {
+	fp := fingerprint("issue.batch_reviewed", cmd.CaseID, cmd.Reviewer, cmd.Decisions)
+	if prior, ok, err := s.prior(ctx, cmd.CaseID, cmd.RequestID, fp); err != nil || ok {
 		return prior, err
 	}
 	c, _, err := s.repo.Get(ctx, cmd.CaseID)
@@ -120,7 +122,7 @@ func (s *Service) ReviewBatch(ctx context.Context, cmd ReviewBatchCommand) (Muta
 	c.RefreshReviewStatus(now)
 	result := resultFor(c)
 	event := domain.NewEvent(c.ID, "issue.batch_reviewed", cmd.Reviewer, cmd.RequestID, c.Revision, now, map[string]any{"decisions": payload, "count": len(payload)})
-	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
+	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Fingerprint: fp, Result: &result}); err != nil {
 		return MutationResult{}, err
 	}
 	return result, nil

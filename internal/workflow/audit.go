@@ -10,7 +10,8 @@ func (s *Service) Audit(ctx context.Context, cmd AuditCommand) (MutationResult, 
 	if err := validateMutation(cmd.CaseID, cmd.Actor, cmd.RequestID, cmd.Revision); err != nil {
 		return MutationResult{}, err
 	}
-	if prior, ok, err := s.prior(ctx, cmd.CaseID, cmd.RequestID); err != nil || ok {
+	fp := fingerprint("audit", cmd.CaseID, cmd.Actor)
+	if prior, ok, err := s.prior(ctx, cmd.CaseID, cmd.RequestID, fp); err != nil || ok {
 		return prior, err
 	}
 	c, content, err := s.repo.Get(ctx, cmd.CaseID)
@@ -43,7 +44,7 @@ func (s *Service) Audit(ctx context.Context, cmd AuditCommand) (MutationResult, 
 	}
 	result := resultFor(c)
 	event := domain.NewEvent(c.ID, eventType, cmd.Actor, cmd.RequestID, c.Revision, now, payload)
-	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
+	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Fingerprint: fp, Result: &result}); err != nil {
 		return MutationResult{}, err
 	}
 	return result, nil

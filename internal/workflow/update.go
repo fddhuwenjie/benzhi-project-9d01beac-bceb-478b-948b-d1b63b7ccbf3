@@ -11,7 +11,8 @@ func (s *Service) UpdateCase(ctx context.Context, cmd UpdateCaseCommand) (Mutati
 	if err := validateMutation(cmd.CaseID, cmd.Actor, cmd.RequestID, cmd.Revision); err != nil {
 		return MutationResult{}, err
 	}
-	if prior, ok, err := s.prior(ctx, cmd.CaseID, cmd.RequestID); err != nil || ok {
+	fp := fingerprint("case.metadata_updated", cmd.CaseID, cmd.Title, cmd.Organization, cmd.Owner, cmd.TargetPublishDate, cmd.Actor)
+	if prior, ok, err := s.prior(ctx, cmd.CaseID, cmd.RequestID, fp); err != nil || ok {
 		return prior, err
 	}
 	c, _, err := s.repo.Get(ctx, cmd.CaseID)
@@ -32,7 +33,7 @@ func (s *Service) UpdateCase(ctx context.Context, cmd UpdateCaseCommand) (Mutati
 		"target_publish_date": c.TargetPublishDate,
 	})
 	err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected,
-		Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result})
+		Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Fingerprint: fp, Result: &result})
 	if err != nil {
 		return MutationResult{}, err
 	}
