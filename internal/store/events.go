@@ -34,6 +34,22 @@ func appendEvents(path string, events []domain.CaseEvent) error {
 	return f.Sync()
 }
 
+func eventLogSize(path string) int64 {
+	info, err := os.Stat(path)
+	if err != nil {
+		return 0
+	}
+	return info.Size()
+}
+
+func rollbackEventLog(path string, size int64) {
+	if size <= 0 {
+		_ = os.Remove(path)
+		return
+	}
+	_ = os.Truncate(path, size)
+}
+
 func readEvents(path, caseID string) ([]domain.CaseEvent, error) {
 	f, err := os.Open(path)
 	if errors.Is(err, os.ErrNotExist) {

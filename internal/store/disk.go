@@ -51,13 +51,22 @@ func (r *DiskRepository) Create(ctx context.Context, c *domain.AcceptanceCase, e
 	if _, err := os.Stat(r.casePath(c.ID)); err == nil {
 		return domain.ErrConflict
 	}
-	if err := writeSnapshot(r.casePath(c.ID), snapshot{Case: *c, ContentHistory: []domain.DocumentContent{}}); err != nil {
+	casePath := r.casePath(c.ID)
+	eventsBefore := eventLogSize(r.eventsPath)
+	if err := writeSnapshot(casePath, snapshot{Case: *c, ContentHistory: []domain.DocumentContent{}}); err != nil {
 		return err
 	}
 	if err := appendEvents(r.eventsPath, events); err != nil {
+		_ = os.Remove(casePath)
+		rollbackEventLog(r.eventsPath, eventsBefore)
 		return err
 	}
-	return r.rememberLocked("", requestID, result)
+	if err := r.rememberLocked("", requestID, result); err != nil {
+		rollbackEventLog(r.eventsPath, eventsBefore)
+		_ = os.Remove(casePath)
+		return err
+	}
+	return nil
 }
 
 func (r *DiskRepository) Save(ctx context.Context, req SaveRequest) error {
@@ -95,13 +104,22 @@ func (r *DiskRepository) Save(ctx context.Context, req SaveRequest) error {
 	} else {
 		content = s.Content
 	}
-	if err := writeSnapshot(r.casePath(req.Case.ID), snapshot{Case: *req.Case, Content: content, ContentHistory: history}); err != nil {
+	casePath := r.casePath(req.Case.ID)
+	eventsBefore := eventLogSize(r.eventsPath)
+	if err := writeSnapshot(casePath, snapshot{Case: *req.Case, Content: content, ContentHistory: history}); err != nil {
 		return err
 	}
 	if err := appendEvents(r.eventsPath, req.Events); err != nil {
+		restoreSnapshot(casePath, s)
+		rollbackEventLog(r.eventsPath, eventsBefore)
 		return err
 	}
-	return r.rememberLocked(req.Case.ID, req.RequestID, req.Result)
+	if err := r.rememberLocked(req.Case.ID, req.RequestID, req.Result); err != nil {
+		rollbackEventLog(r.eventsPath, eventsBefore)
+		restoreSnapshot(casePath, s)
+		return err
+	}
+	return nil
 }
 
 func cloneContentHistory(items []domain.DocumentContent) []domain.DocumentContent {
@@ -140,8 +158,18 @@ func (r *DiskRepository) rememberLocked(caseID, requestID string, result any) er
 	if err != nil {
 		return err
 	}
-	r.records[caseID+"\x00"+requestID] = idempotencyRecord{CaseID: caseID, RequestID: requestID, Result: b}
-	return writeIdempotency(r.idempotencyPath, r.records)
+	key := caseID + "\x00" + requestID
+	previous, hadPrevious := r.records[key]
+	r.records[key] = idempotencyRecord{CaseID: caseID, RequestID: requestID, Result: b}
+	if err := writeIdempotency(r.idempotencyPath, r.records); err != nil {
+		if hadPrevious {
+			r.records[key] = previous
+		} else {
+			delete(r.records, key)
+		}
+		return err
+	}
+	return nil
 }
 
 func (r *DiskRepository) Get(ctx context.Context, id string) (*domain.AcceptanceCase, *domain.DocumentContent, error) {

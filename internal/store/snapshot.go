@@ -61,3 +61,11 @@ func writeSnapshot(path string, s snapshot) error {
 	}
 	return nil
 }
+
+func restoreSnapshot(path string, s *snapshot) {
+	if s == nil {
+		_ = os.Remove(path)
+		return
+	}
+	_ = writeSnapshot(path, *s)
+}
