@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>无障碍文档整改验收台</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div><span class="brand-mark" aria-hidden="true">验</span><strong>无障碍文档整改验收台</strong></div>
+    <button id="new-case" class="primary">新建验收案</button>
+  </header>
+  <main class="workspace">
+    <aside class="case-list" aria-label="验收案列表">
+      <div class="panel-title"><h1>验收案</h1><span id="case-count">0</span></div>
+      <form id="case-filters" class="case-filters">
+        <label>检索<input name="q" placeholder="标题或所属机构"></label>
+        <div class="filter-row"><label>负责人<input name="owner"></label><label>状态<select name="status"><option value="">全部</option><option value="draft">草稿</option><option value="remediating">整改中</option><option value="review">待复核</option><option value="approved">已批准</option><option value="published">已发布</option></select></label></div>
+        <div class="filter-row"><label>发布日期从<input name="date_from" type="date"></label><label>至<input name="date_to" type="date"></label></div>
+        <div class="filter-row"><label>排序<select name="sort"><option value="updated_at">最近更新时间</option><option value="target_publish_date">目标发布日期</option></select></label><label>方向<select name="order"><option value="desc">降序</option><option value="asc">升序</option></select></label></div>
+        <div class="filter-actions"><button type="reset">清除</button><button class="primary" type="submit">查询</button></div>
+      </form>
+      <div id="cases" class="case-items"></div>
+      <button id="next-cases" class="list-more hidden">下一页</button>
+    </aside>
+    <section id="empty-state" class="empty-state">
+      <h2>选择一个验收案开始工作</h2>
+      <p>从左侧打开已有验收案，或创建一份新的文档验收案。</p>
+    </section>
+    <section id="detail" class="detail hidden">
+      <div class="detail-head">
+        <div><p id="case-org" class="eyebrow"></p><h2 id="case-title"></h2><p id="case-meta" class="muted"></p></div>
+        <div class="head-actions"><button id="edit-case">编辑信息</button><span id="case-status" class="status"></span></div>
+      </div>
+      <nav class="tabs" aria-label="验收案视图">
+        <button class="tab active" data-tab="content">文档内容</button>
+        <button class="tab" data-tab="issues">问题与证据 <span id="issue-count"></span></button>
+        <button class="tab" data-tab="timeline">事件时间线</button>
+      </nav>
+      <div id="tab-content" class="tab-panel">
+        <div class="toolbar"><strong>结构化内容</strong><div><button id="content-history">修订历史</button><button id="add-block">添加内容块</button><button id="save-content" class="primary">保存修订</button><button id="run-audit" class="accent">执行规则审查</button></div></div>
+        <section id="history-panel" class="history-panel hidden"><div class="history-head"><strong>内容修订</strong><div><select id="diff-from" aria-label="对比起始修订"></select><span>对比</span><select id="diff-to" aria-label="对比目标修订"></select><button id="compare-content">查看差异</button></div></div><div id="history-list"></div><pre id="content-diff" class="diff-view hidden"></pre></section>
+        <div id="blocks"></div>
+      </div>
+      <div id="tab-issues" class="tab-panel hidden">
+        <div class="toolbar"><strong>规则问题与整改证据</strong><div><button id="batch-evidence">批量提交证据</button><button id="batch-review">批量复核</button><button id="preview-declaration">声明预览</button><button id="approve" class="accent">批准验收</button><button id="publish" class="primary">发布声明</button></div></div>
+        <div id="issues"></div>
+      </div>
+      <div id="tab-timeline" class="tab-panel hidden"><form id="timeline-filters" class="timeline-filters"><label>事件类型<input name="event_type"></label><label>操作人<input name="actor"></label><label>修订从<input name="revision_from" type="number" min="1"></label><label>至<input name="revision_to" type="number" min="1"></label><button type="reset">清除</button><button class="primary">筛选</button></form><div id="timeline-integrity" class="integrity"></div><ol id="timeline" class="timeline"></ol><button id="next-events" class="hidden">加载更多</button></div>
+    </section>
+  </main>
+  <dialog id="case-dialog">
+    <form id="case-form" method="dialog">
+      <div class="dialog-head"><h2>新建验收案</h2><button type="button" class="icon" data-close aria-label="关闭">×</button></div>
+      <label>文档标题<input name="title" required></label>
+      <label>所属机构<input name="organization" required></label>
+      <div class="form-row"><label>负责人<input name="owner" required></label><label>目标发布日期<input name="target_publish_date" type="date" required></label></div>
+      <label>操作人<input name="actor" value="内容编辑" required></label>
+      <footer><button type="button" data-close>取消</button><button class="primary" type="submit">创建验收案</button></footer>
+    </form>
+  </dialog>
+  <dialog id="edit-dialog">
+    <form id="edit-form" method="dialog">
+      <div class="dialog-head"><h2>编辑验收案信息</h2><button type="button" class="icon" data-edit-close aria-label="关闭">×</button></div>
+      <label>文档标题<input name="title" required></label>
+      <label>所属机构<input name="organization" required></label>
+      <div class="form-row"><label>负责人<input name="owner" required></label><label>目标发布日期<input name="target_publish_date" type="date" required></label></div>
+      <label>操作人<input name="actor" required></label>
+      <footer><button type="button" data-edit-close>取消</button><button class="primary" type="submit">保存信息</button></footer>
+    </form>
+  </dialog>
+  <dialog id="preview-dialog"><div class="preview-dialog"><div class="dialog-head"><h2>合格声明预览</h2><button id="close-preview" type="button" class="icon" aria-label="关闭">×</button></div><div id="preview-content"></div></div></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="/assets/app.js" defer></script>
+</body>
+</html>

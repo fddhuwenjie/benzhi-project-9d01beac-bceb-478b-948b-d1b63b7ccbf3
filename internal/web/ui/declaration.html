@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>无障碍合格声明 - {{.DocumentTitle}}</title><link rel="stylesheet" href="/assets/app.css"></head>
+<body class="declaration-page">
+  <main class="declaration">
+    <header><p>公共服务文档无障碍验收</p><h1>合格声明</h1><span>声明编号 {{.ID}}</span></header>
+    <section><h2>{{.DocumentTitle}}</h2><p>{{.Organization}} 已完成本文件的结构化无障碍审查、整改和人工复核。基于下列规则版本与内容修订，现确认该文件通过本次验收。</p></section>
+    <dl><div><dt>规则版本</dt><dd>{{.RuleVersion}}</dd></div><div><dt>内容修订</dt><dd>第 {{.ContentRevision}} 版</dd></div><div><dt>审批人</dt><dd>{{.Approver}}</dd></div><div><dt>审批时间</dt><dd>{{.ApprovedAt.Format "2006-01-02 15:04 MST"}}</dd></div><div><dt>负责人</dt><dd>{{.Owner}}</dd></div><div><dt>目标发布日期</dt><dd>{{.TargetPublishDate}}</dd></div><div><dt>声明摘要</dt><dd class="digest">{{.Digest}}</dd></div></dl>
+    <section><h3>问题处置摘要</h3><table><thead><tr><th>规则</th><th>内容定位</th><th>结论</th></tr></thead><tbody>{{range .Dispositions}}<tr><td>{{.RuleCode}}</td><td>{{.BlockID}}</td><td>{{if eq .Result "accepted"}}已接受{{else}}复审已消除{{end}}</td></tr>{{else}}<tr><td colspan="3">审查未发现问题</td></tr>{{end}}</tbody></table></section>
+    <footer><p>发布时间 {{.PublishedAt.Format "2006-01-02 15:04 MST"}}</p><button onclick="window.print()">打印声明</button><a href="/api/cases/{{.CaseID}}/declaration">导出 JSON</a></footer>
+  </main>
+</body>
+</html>
