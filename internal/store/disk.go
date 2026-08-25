@@ -15,6 +15,7 @@ type DiskRepository struct {
 	mu              sync.RWMutex
 	dir             string
 	eventsPath      string
+	eventsFile      *os.File
 	idempotencyPath string
 	records         map[string]idempotencyRecord
 }
@@ -54,7 +55,7 @@ func (r *DiskRepository) Create(ctx context.Context, c *domain.AcceptanceCase, e
 	if err := writeSnapshot(r.casePath(c.ID), snapshot{Case: *c, ContentHistory: []domain.DocumentContent{}}); err != nil {
 		return err
 	}
-	if err := appendEvents(r.eventsPath, events); err != nil {
+	if err := r.appendEventsLocked(events); err != nil {
 		return err
 	}
 	return r.rememberLocked("", requestID, result)
@@ -98,7 +99,7 @@ func (r *DiskRepository) Save(ctx context.Context, req SaveRequest) error {
 	if err := writeSnapshot(r.casePath(req.Case.ID), snapshot{Case: *req.Case, Content: content, ContentHistory: history}); err != nil {
 		return err
 	}
-	if err := appendEvents(r.eventsPath, req.Events); err != nil {
+	if err := r.appendEventsLocked(req.Events); err != nil {
 		return err
 	}
 	return r.rememberLocked(req.Case.ID, req.RequestID, req.Result)

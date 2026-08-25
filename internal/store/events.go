@@ -9,16 +9,18 @@ import (
 	"os"
 )
 
-func appendEvents(path string, events []domain.CaseEvent) error {
+func (r *DiskRepository) appendEventsLocked(events []domain.CaseEvent) error {
 	if len(events) == 0 {
 		return nil
 	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
-	if err != nil {
-		return err
+	if r.eventsFile == nil {
+		f, err := os.OpenFile(r.eventsPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+		if err != nil {
+			return err
+		}
+		r.eventsFile = f
 	}
-	defer f.Close()
-	w := bufio.NewWriter(f)
+	w := bufio.NewWriter(r.eventsFile)
 	for _, event := range events {
 		b, err := json.Marshal(event)
 		if err != nil {
@@ -31,7 +33,7 @@ func appendEvents(path string, events []domain.CaseEvent) error {
 	if err := w.Flush(); err != nil {
 		return err
 	}
-	return f.Sync()
+	return r.eventsFile.Sync()
 }
 
 func readEvents(path, caseID string) ([]domain.CaseEvent, error) {
