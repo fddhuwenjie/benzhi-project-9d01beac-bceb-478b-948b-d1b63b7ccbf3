@@ -11,24 +11,38 @@ import (
 func (s *Service) ListCases(ctx context.Context) ([]domain.AcceptanceCase, error) {
 	return s.repo.List(ctx)
 }
+
+type caseViews struct {
+	timeline TimelinePage
+	history  []domain.DocumentContent
+}
+
+func (s *Service) loadCaseViews(id string) (caseViews, error) {
+	timeline, err := s.Timeline(context.Background(), id, TimelineQuery{Limit: 100})
+	if err != nil {
+		return caseViews{}, err
+	}
+	history, err := s.repo.ContentHistory(context.Background(), id)
+	if err != nil {
+		return caseViews{}, err
+	}
+	return caseViews{timeline: timeline, history: history}, nil
+}
+
 func (s *Service) GetCase(ctx context.Context, id string) (CaseDetail, error) {
 	c, content, err := s.repo.Get(ctx, id)
 	if err != nil {
 		return CaseDetail{}, err
 	}
-	timeline, err := s.Timeline(ctx, id, TimelineQuery{Limit: 100})
+	views, err := s.loadCaseViews(id)
 	if err != nil {
 		return CaseDetail{}, err
 	}
-	history, err := s.repo.ContentHistory(ctx, id)
-	if err != nil {
-		return CaseDetail{}, err
-	}
-	revisions := make([]ContentRevisionInfo, len(history))
-	for index, item := range history {
+	revisions := make([]ContentRevisionInfo, len(views.history))
+	for index, item := range views.history {
 		revisions[index] = ContentRevisionInfo{Revision: item.Revision, SavedBy: item.SavedBy, SavedAt: item.SavedAt, BlockCount: len(item.Blocks)}
 	}
-	return CaseDetail{Case: c, Content: content, Timeline: timeline.Events, Progress: c.Progress(s.now()), ContentRevisions: revisions, TimelineIntegrity: timeline.Integrity}, nil
+	return CaseDetail{Case: c, Content: content, Timeline: views.timeline.Events, Progress: c.Progress(s.now()), ContentRevisions: revisions, TimelineIntegrity: views.timeline.Integrity}, nil
 }
 func (s *Service) Declaration(ctx context.Context, id string) (*domain.Declaration, error) {
 	c, _, err := s.repo.Get(ctx, id)
