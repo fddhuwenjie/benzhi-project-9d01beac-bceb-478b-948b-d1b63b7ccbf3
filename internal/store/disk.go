@@ -17,13 +17,14 @@ type DiskRepository struct {
 	eventsPath      string
 	idempotencyPath string
 	records         map[string]idempotencyRecord
+	timelines       map[string][]domain.CaseEvent
 }
 
 func NewDiskRepository(dir string) (*DiskRepository, error) {
 	if err := os.MkdirAll(filepath.Join(dir, "cases"), 0700); err != nil {
 		return nil, err
 	}
-	r := &DiskRepository{dir: dir, eventsPath: filepath.Join(dir, "events.jsonl"), idempotencyPath: filepath.Join(dir, "idempotency.json")}
+	r := &DiskRepository{dir: dir, eventsPath: filepath.Join(dir, "events.jsonl"), idempotencyPath: filepath.Join(dir, "idempotency.json"), timelines: make(map[string][]domain.CaseEvent)}
 	records, err := loadIdempotency(r.idempotencyPath)
 	if err != nil {
 		return nil, err
@@ -57,6 +58,7 @@ func (r *DiskRepository) Create(ctx context.Context, c *domain.AcceptanceCase, e
 	if err := appendEvents(r.eventsPath, events); err != nil {
 		return err
 	}
+	delete(r.timelines, c.ID)
 	return r.rememberLocked("", requestID, result)
 }
 
@@ -101,6 +103,7 @@ func (r *DiskRepository) Save(ctx context.Context, req SaveRequest) error {
 	if err := appendEvents(r.eventsPath, req.Events); err != nil {
 		return err
 	}
+	delete(r.timelines, req.Case.ID)
 	return r.rememberLocked(req.Case.ID, req.RequestID, req.Result)
 }
 
@@ -192,9 +195,17 @@ func (r *DiskRepository) Timeline(ctx context.Context, caseID string) ([]domain.
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return readEvents(r.eventsPath, caseID)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if events, ok := r.timelines[caseID]; ok {
+		return events, nil
+	}
+	events, err := readEvents(r.eventsPath, caseID)
+	if err != nil {
+		return nil, err
+	}
+	r.timelines[caseID] = events
+	return events, nil
 }
 
 func (r *DiskRepository) IdempotentResult(ctx context.Context, caseID, requestID string, dst any) (bool, error) {
