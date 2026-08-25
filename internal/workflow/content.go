@@ -32,7 +32,7 @@ func (s *Service) SaveContent(ctx context.Context, cmd SaveContentCommand) (Muta
 	}
 	result := resultFor(c)
 	event := domain.NewEvent(c.ID, "content.saved", cmd.Actor, cmd.RequestID, c.Revision, now, map[string]any{"content_revision": content.Revision, "block_count": len(content.Blocks)})
-	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, Content: content, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
+	if err = s.repo.Save(context.WithoutCancel(ctx), store.SaveRequest{Case: c, Content: content, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
 		return MutationResult{}, err
 	}
 	return result, nil
@@ -84,7 +84,7 @@ func (s *Service) RestoreContent(ctx context.Context, cmd RestoreContentCommand)
 	}
 	result := resultFor(c)
 	event := domain.NewEvent(c.ID, "content.restored", cmd.Actor, cmd.RequestID, c.Revision, now, map[string]any{"source_revision": cmd.SourceRevision, "content_revision": restored.Revision, "block_count": restored.BlockCount})
-	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, Content: &restored, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
+	if err = s.repo.Save(context.WithoutCancel(ctx), store.SaveRequest{Case: c, Content: &restored, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
 		return MutationResult{}, err
 	}
 	return result, nil

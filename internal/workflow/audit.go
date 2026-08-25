@@ -43,7 +43,7 @@ func (s *Service) Audit(ctx context.Context, cmd AuditCommand) (MutationResult, 
 	}
 	result := resultFor(c)
 	event := domain.NewEvent(c.ID, eventType, cmd.Actor, cmd.RequestID, c.Revision, now, payload)
-	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
+	if err = s.repo.Save(context.WithoutCancel(ctx), store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
 		return MutationResult{}, err
 	}
 	return result, nil

@@ -27,7 +27,7 @@ func (s *Service) Approve(ctx context.Context, cmd ApproveCommand) (MutationResu
 	}
 	result := resultFor(c)
 	event := domain.NewEvent(c.ID, "case.approved", cmd.Approver, cmd.RequestID, c.Revision, now, map[string]any{"declaration_id": c.Declaration.ID, "rule_version": c.RuleVersion, "content_revision": c.ContentRevision, "digest": c.Declaration.Digest})
-	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
+	if err = s.repo.Save(context.WithoutCancel(ctx), store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
 		return MutationResult{}, err
 	}
 	return result, nil
@@ -54,7 +54,7 @@ func (s *Service) Publish(ctx context.Context, cmd PublishCommand) (MutationResu
 	}
 	result := resultFor(c)
 	event := domain.NewEvent(c.ID, "declaration.published", cmd.Actor, cmd.RequestID, c.Revision, now, map[string]any{"declaration_id": c.Declaration.ID, "digest": c.Declaration.Digest})
-	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
+	if err = s.repo.Save(context.WithoutCancel(ctx), store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
 		return MutationResult{}, err
 	}
 	return result, nil

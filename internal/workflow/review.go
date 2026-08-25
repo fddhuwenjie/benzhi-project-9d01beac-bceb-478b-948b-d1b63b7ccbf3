@@ -43,7 +43,7 @@ func (s *Service) ReviewIssue(ctx context.Context, cmd ReviewIssueCommand) (Muta
 	result := resultFor(c)
 	result.IssueID = issue.ID
 	event := domain.NewEvent(c.ID, "issue.reviewed", cmd.Reviewer, cmd.RequestID, c.Revision, now, map[string]any{"issue_id": issue.ID, "decision": decision, "comment": cmd.Comment})
-	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
+	if err = s.repo.Save(context.WithoutCancel(ctx), store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
 		return MutationResult{}, err
 	}
 	return result, nil
@@ -120,7 +120,7 @@ func (s *Service) ReviewBatch(ctx context.Context, cmd ReviewBatchCommand) (Muta
 	c.RefreshReviewStatus(now)
 	result := resultFor(c)
 	event := domain.NewEvent(c.ID, "issue.batch_reviewed", cmd.Reviewer, cmd.RequestID, c.Revision, now, map[string]any{"decisions": payload, "count": len(payload)})
-	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
+	if err = s.repo.Save(context.WithoutCancel(ctx), store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
 		return MutationResult{}, err
 	}
 	return result, nil

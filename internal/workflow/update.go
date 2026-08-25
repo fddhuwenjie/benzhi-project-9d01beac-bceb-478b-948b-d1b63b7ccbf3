@@ -31,7 +31,7 @@ func (s *Service) UpdateCase(ctx context.Context, cmd UpdateCaseCommand) (Mutati
 		"title": c.Title, "organization": c.Organization, "owner": c.Owner,
 		"target_publish_date": c.TargetPublishDate,
 	})
-	err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected,
+	err = s.repo.Save(context.WithoutCancel(ctx), store.SaveRequest{Case: c, ExpectedRevision: expected,
 		Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result})
 	if err != nil {
 		return MutationResult{}, err

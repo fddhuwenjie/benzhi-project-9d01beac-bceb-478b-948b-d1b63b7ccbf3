@@ -20,7 +20,7 @@ func (s *Service) CreateCase(ctx context.Context, cmd CreateCaseCommand) (Mutati
 	}
 	result := resultFor(c)
 	event := domain.NewEvent(c.ID, "case.created", cmd.Actor, cmd.RequestID, c.Revision, now, map[string]any{"title": c.Title, "organization": c.Organization})
-	if err := s.repo.Create(ctx, c, []domain.CaseEvent{event}, cmd.RequestID, &result); err != nil {
+	if err := s.repo.Create(context.WithoutCancel(ctx), c, []domain.CaseEvent{event}, cmd.RequestID, &result); err != nil {
 		return MutationResult{}, err
 	}
 	return result, nil

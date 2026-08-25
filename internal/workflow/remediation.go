@@ -42,7 +42,7 @@ func (s *Service) SubmitEvidence(ctx context.Context, cmd SubmitEvidenceCommand)
 	result := resultFor(c)
 	result.IssueID = issue.ID
 	event := domain.NewEvent(c.ID, "evidence.submitted", cmd.Actor, cmd.RequestID, c.Revision, now, map[string]any{"issue_id": issue.ID, "content_revision": cmd.ContentRevision})
-	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
+	if err = s.repo.Save(context.WithoutCancel(ctx), store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
 		return MutationResult{}, err
 	}
 	return result, nil
@@ -121,7 +121,7 @@ func (s *Service) SubmitEvidenceBatch(ctx context.Context, cmd SubmitEvidenceBat
 		issueIDs[i] = cmd.Items[i].IssueID
 	}
 	event := domain.NewEvent(c.ID, "evidence.batch_submitted", cmd.Actor, cmd.RequestID, c.Revision, now, map[string]any{"issue_ids": issueIDs, "content_revision": c.ContentRevision, "count": len(issueIDs)})
-	if err = s.repo.Save(ctx, store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
+	if err = s.repo.Save(context.WithoutCancel(ctx), store.SaveRequest{Case: c, ExpectedRevision: expected, Events: []domain.CaseEvent{event}, RequestID: cmd.RequestID, Result: &result}); err != nil {
 		return MutationResult{}, err
 	}
 	return result, nil
