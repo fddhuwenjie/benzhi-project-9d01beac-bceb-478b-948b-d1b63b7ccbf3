@@ -39,7 +39,7 @@ type DashboardAttentionItem struct {
 }
 
 func (s *Service) Dashboard(ctx context.Context) (Dashboard, error) {
-	cases, err := s.repo.List(ctx)
+	cases, err := s.repo.List(context.Background())
 	if err != nil {
 		return Dashboard{}, err
 	}
