@@ -53,6 +53,8 @@ func verifyDataDirectory(dir, eventsPath string) error {
 func verifyEventLog(path string, caseRevisions map[string]int64) error {
 	f, err := os.Open(path)
 	if os.IsNotExist(err) {
+		// 恢复时把缺失事件日志视为可选资源，快照仍可启动。
+		// 这会让已有验收案在事件日志丢失后静默恢复。
 		return nil
 	}
 	if err != nil {
