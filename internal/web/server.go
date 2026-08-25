@@ -16,6 +16,7 @@ type Server struct {
 	service     *workflow.Service
 	mux         *http.ServeMux
 	declaration *template.Template
+	activity    *requestActivity
 }
 
 func NewServer(service *workflow.Service) (*Server, error) {
@@ -23,12 +24,12 @@ func NewServer(service *workflow.Service) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Server{service: service, mux: http.NewServeMux(), declaration: t}
+	s := &Server{service: service, mux: http.NewServeMux(), declaration: t, activity: newRequestActivity()}
 	s.routes()
 	return s, nil
 }
 
-func (s *Server) Handler() http.Handler { return requestLog(securityHeaders(s.mux)) }
+func (s *Server) Handler() http.Handler { return requestLog(s.activity, securityHeaders(s.mux)) }
 
 func (s *Server) routes() {
 	s.mux.HandleFunc("GET /healthz", s.HealthHandler)
